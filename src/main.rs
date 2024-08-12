@@ -1,19 +1,22 @@
 use std::{error::Error, net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket}, time::SystemTime, u16::MAX};
 
-use bevy::{log::LogPlugin, prelude::*, window::PresentMode, winit::WinitSettings};
-use bevy_inspector_egui::quick::WorldInspectorPlugin;
-use bevy_replicon::{client::{self, ClientPlugin}, prelude::{has_authority, AppRuleExt, ChannelKind, ClientEventAppExt, ClientEventsPlugin, RepliconChannels}, server::{ServerEvent, ServerPlugin, TickPolicy}, RepliconPlugins};
+use bevy::{a11y::accesskit::Action, log::LogPlugin, math::VectorSpace, prelude::*, window::PresentMode, winit::WinitSettings};
+use bevy_ecs_tilemap::{map::{TilemapGridSize, TilemapId, TilemapType}, tiles::TilePos};
+use bevy_inspector_egui::{egui::lerp, quick::WorldInspectorPlugin};
+use bevy_replicon::{client::{self, ClientPlugin}, prelude::{has_authority, AppRuleExt, ChannelKind, ClientEventAppExt, ClientEventsPlugin, ParentSyncPlugin, RepliconChannels}, server::{ServerEvent, ServerPlugin, TickPolicy}, RepliconPlugins};
 use bevy_replicon_renet::{client::RepliconRenetClientPlugin, renet::{transport::{ClientAuthentication, NetcodeClientTransport, NetcodeServerTransport, ServerAuthentication, ServerConfig}, ConnectionConfig, RenetClient, RenetServer}, RepliconRenetPlugins};
 use bevy_replicon_renet::RenetChannelsExt;
-use bevy_replicon_snap::SnapshotInterpolationPlugin;
+use bevy_replicon_snap::{interpolation::{AppInterpolationExt, Interpolate}, NetworkOwner, SnapshotInterpolationPlugin};
 use clap::Parser;
 use player::{PlayerBundle, PlayerPlugin};
 use serde::{Deserialize, Serialize};
+use world::WorldPlugin;
 
 mod player;
+mod world;
 
 const PROTOCOL_ID: u64 = 0x1122334455667788;
-const MAX_TICK_RATE: u16 = 60;
+const MAX_TICK_RATE: u16 = 20;
 
 fn main() {
 
@@ -34,7 +37,7 @@ fn main() {
                     ..Default::default()
                 }),
                 ..Default::default()
-            }),
+            }).set(ImagePlugin::default_nearest()),
             RepliconPlugins.set(ServerPlugin {
                 tick_policy: TickPolicy::MaxTickRate(MAX_TICK_RATE),
                 ..Default::default()
@@ -44,13 +47,15 @@ fn main() {
             PlayerPlugin,
             SnapshotInterpolationPlugin {
                 max_tick_rate: MAX_TICK_RATE,
-            }
-            
+            },
+            WorldPlugin,
         ))
         .add_client_event::<MoveEvent>(ChannelKind::Ordered)
+        .add_client_event::<ActionEvent>(ChannelKind::Ordered)
         .add_systems(Startup, (read_cli.map(Result::unwrap), setup_camera))
         .add_systems(Update, (read_input, handle_connections.run_if(has_authority)))
-        .replicate::<Transform>()
+        .replicate_interpolated::<Transform>()
+        .replicate::<Name>()
         .run();
 }
 
@@ -126,6 +131,7 @@ fn setup_camera(mut commands: Commands) {
 fn handle_connections(
     mut commands: Commands,
     mut server_events: EventReader<ServerEvent>,
+    mut player_query: Query<(Entity, &NetworkOwner)>,
 )  {
     for event in server_events.read() {
         match event {
@@ -135,6 +141,11 @@ fn handle_connections(
             }
             ServerEvent::ClientDisconnected{client_id, reason} => {
                 debug!("Client disconnected: {:?}", client_id);
+                for (entity, owner) in player_query.iter() {
+                    if owner.0 == client_id.get()  {
+                        commands.entity(entity).despawn_recursive();
+                    }
+                }
             }
         }
     }
@@ -142,7 +153,8 @@ fn handle_connections(
 
 fn read_input(
     input: Res<ButtonInput<KeyCode>>,
-    mut events: EventWriter<MoveEvent>,
+    mut move_ev: EventWriter<MoveEvent>,
+    mut action_ev: EventWriter<ActionEvent>,
 ) {
     let mut direction = Vec2::ZERO;
     
@@ -158,13 +170,25 @@ fn read_input(
     if input.pressed(KeyCode::KeyD) {
         direction.x += 1.0;
     }
-    events.send(MoveEvent { input: direction });
+    if direction != Vec2::ZERO {
+        move_ev.send(MoveEvent { input: direction });
+    }
+
+    if input.just_pressed(KeyCode::Space) {
+        action_ev.send(ActionEvent { action: KeyCode::Space});
+    }
 }
 
 
-#[derive(Event, Serialize, Deserialize, Debug)]
+#[derive(Event, Serialize, Deserialize, Debug, Clone)]
 struct MoveEvent {
     pub input: Vec2,
+}
+
+
+#[derive(Event, Serialize, Deserialize, Debug, Clone)]
+struct ActionEvent {
+    pub action: KeyCode,
 }
 
 const PORT: u16 = 5000;

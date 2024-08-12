@@ -673,6 +673,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "bevy_ecs_tilemap"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d880047f5deaf5166ffc08238125a4ccbd2837f781ca6525fa200fcf5785ba3b"
+dependencies = [
+ "bevy",
+ "log",
+ "regex",
+ "serde",
+]
+
+[[package]]
 name = "bevy_egui"
 version = "0.28.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1070,8 +1082,7 @@ dependencies = [
 [[package]]
 name = "bevy_replicon_snap"
 version = "0.2.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b154463dd8aaccce7a3cea94634d3c854279c4f3bad073890e1cd8cb57c8fb2c"
+source = "git+https://github.com/Darkluke1111/bevy_replicon_snap.git#5ca4a7b614c849dc9d94a42435a6e5d85f472330"
 dependencies = [
  "bevy",
  "bevy_replicon",
@@ -1082,8 +1093,7 @@ dependencies = [
 [[package]]
 name = "bevy_replicon_snap_macros"
 version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1b7f2ca7e3ca55177621bf8e19648ca7639b6cd9d31c6ec9a541860b663b3bac"
+source = "git+https://github.com/Darkluke1111/bevy_replicon_snap.git#5ca4a7b614c849dc9d94a42435a6e5d85f472330"
 dependencies = [
  "quote",
  "syn 2.0.72",
@@ -3735,6 +3745,7 @@ version = "0.1.0"
 dependencies = [
  "bevy",
  "bevy-inspector-egui",
+ "bevy_ecs_tilemap",
  "bevy_replicon",
  "bevy_replicon_renet",
  "bevy_replicon_snap",

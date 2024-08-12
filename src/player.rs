@@ -1,6 +1,7 @@
 use bevy::{prelude::*};
-use bevy_replicon::{client::ClientSet, core::{ClientId, Replicated}, prelude::{has_authority, AppRuleExt, FromClient, RepliconClient}};
+use bevy_replicon::{client::ClientSet, core::{ClientId, Replicated}, prelude::{has_authority, AppRuleExt, ChannelKind, FromClient, RepliconClient}};
 use bevy_replicon_renet::renet::RenetClient;
+use bevy_replicon_snap::{interpolation::Interpolated, prediction::{AppPredictionExt, OwnerPredicted, Predict}, NetworkOwner};
 use serde::{Deserialize, Serialize};
 
 use crate::MoveEvent;
@@ -14,24 +15,31 @@ impl Plugin for PlayerPlugin {
         app
             .replicate::<Player>()
             .add_systems(PreUpdate, init_player.after(ClientSet::Receive))
-            .add_systems(Update, apply_movement.run_if(has_authority));
+            .add_client_predicted_event::<MoveEvent>(ChannelKind::Ordered)
+            .predict_event_for_component::<MoveEvent, Player, Transform>();
     }
 }
 
 
 #[derive(Bundle)]
 pub struct PlayerBundle {
+    owner: NetworkOwner,
     player: Player,
     transform: Transform,
+    predicted: OwnerPredicted,
     replicated: Replicated,
+    name: Name,
 }
 
 impl PlayerBundle {
     pub fn new(client_id: ClientId) -> Self {
         Self {
-            player: Player { client_id, speed: 100.0},
-            transform: Transform::default(),
+            owner: NetworkOwner(client_id.get()),
+            player: Player {speed: 100.0},
+            transform: Transform::from_xyz(0.0,0.0,1.0),
             replicated: Replicated::default(),
+            predicted: OwnerPredicted,
+            name: Name::new("Player"),
         }
     }
 }
@@ -39,7 +47,6 @@ impl PlayerBundle {
 
 #[derive(Component, Deserialize, Serialize)]
 struct Player {
-    client_id: ClientId,
     speed: f32,
 }
 
@@ -61,14 +68,8 @@ fn init_player(
     }
 }
 
-fn apply_movement(
-    time: Res<Time>,
-    mut query: Query<(&mut Transform, &Player)>,
-    mut move_event: EventReader<FromClient<MoveEvent>>,
-) {
-    for FromClient { client_id, event } in move_event.read() {
-        for (mut transform, player) in query.iter_mut().filter(|(_, p)| p.client_id == *client_id) {
-            transform.translation += event.input.extend(0.0) * time.delta_seconds() * player.speed;
-        }
+impl Predict<MoveEvent, Player> for Transform {
+    fn apply_event(&mut self, event: &MoveEvent, delta_time: f32, context: &Player) {
+        self.translation += event.input.extend(0.0) * delta_time * context.speed;
     }
 }

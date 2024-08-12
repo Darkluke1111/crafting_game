@@ -6,9 +6,10 @@ edition = "2021"
 [dependencies]
 bevy = { version = "0.14.1", features = ["dynamic_linking","serialize"] }
 bevy-inspector-egui = "0.25.0"
+bevy_ecs_tilemap = { version = "0.14.0", features = ["serde"] }
 bevy_replicon = "0.27.0"
 bevy_replicon_renet = "0.4.0"
-bevy_replicon_snap = "0.2.4"
+bevy_replicon_snap = { git = "https://github.com/Darkluke1111/bevy_replicon_snap.git" }
 clap = { version = "4.5.13", features = ["derive"]}
 serde = "1.0.204"
 
