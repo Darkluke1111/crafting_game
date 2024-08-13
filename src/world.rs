@@ -1,7 +1,7 @@
 
-use bevy::{ecs::entity::MapEntities, prelude::*};
+use bevy::prelude::*;
 use bevy_ecs_tilemap::{map::{TilemapId, TilemapSize, TilemapTexture, TilemapTileSize, TilemapType}, prelude::*, tiles::{TileBundle, TilePos, TileStorage}, TilemapBundle};
-use bevy_replicon::{client::ClientSet, core::Replicated, prelude::{has_authority, AppRuleExt, FromClient, ParentSync}};
+use bevy_replicon::{client::ClientSet, core::Replicated, prelude::{AppRuleExt, FromClient, ParentSync}};
 use bevy_replicon_snap::NetworkOwner;
 use serde::{Deserialize, Serialize};
 
@@ -71,10 +71,10 @@ fn apply_action(
     player_query: Query<(&NetworkOwner, &Transform)>,
     mut events: EventReader<FromClient<ActionEvent>>,
 ) -> Option<()>{
-    for FromClient { client_id, event } in events.read() {
+    for FromClient { client_id, .. } in events.read() {
         if let Some((_,t)) = player_query.iter().find(|p| p.0.0 == client_id.get()) {
-            let tilePos = TilePos::from_world_pos(&t.translation.xy(), &MAP_SIZE, &GRID_SIZE, &TilemapType::Square)?;
-            let (pos, mut tex_index, mut ground ) = tile_query.iter_mut().find(|(pos,_,_)| pos == &&tilePos)?;
+            let tile_pos = TilePos::from_world_pos(&t.translation.xy(), &MAP_SIZE, &GRID_SIZE, &TilemapType::Square)?;
+            let (_pos, mut tex_index, mut ground ) = tile_query.iter_mut().find(|(pos,_,_)| pos == &&tile_pos)?;
             *ground = Ground::Dirt;
             tex_index.0 = 2;
         }

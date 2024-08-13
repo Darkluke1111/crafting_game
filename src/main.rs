@@ -1,12 +1,36 @@
-use std::{error::Error, net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket}, time::SystemTime, u16::MAX};
+use std::{
+    error::Error,
+    net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket},
+    time::SystemTime,
+};
 
-use bevy::{a11y::accesskit::Action, log::LogPlugin, math::VectorSpace, prelude::*, window::PresentMode, winit::WinitSettings};
-use bevy_ecs_tilemap::{map::{TilemapGridSize, TilemapId, TilemapType}, tiles::TilePos};
-use bevy_inspector_egui::{egui::lerp, quick::WorldInspectorPlugin};
-use bevy_replicon::{client::{self, ClientPlugin}, prelude::{has_authority, AppRuleExt, ChannelKind, ClientEventAppExt, ClientEventsPlugin, ParentSyncPlugin, RepliconChannels}, server::{ServerEvent, ServerPlugin, TickPolicy}, RepliconPlugins};
-use bevy_replicon_renet::{client::RepliconRenetClientPlugin, renet::{transport::{ClientAuthentication, NetcodeClientTransport, NetcodeServerTransport, ServerAuthentication, ServerConfig}, ConnectionConfig, RenetClient, RenetServer}, RepliconRenetPlugins};
+use bevy::{
+    log::LogPlugin, prelude::*, window::PresentMode,
+    winit::WinitSettings,
+};
+use bevy_inspector_egui::quick::WorldInspectorPlugin;
+use bevy_replicon::{
+    prelude::{
+        has_authority, AppRuleExt, ChannelKind, ClientEventAppExt, RepliconChannels,
+    },
+    server::{ServerEvent, ServerPlugin, TickPolicy},
+    RepliconPlugins,
+};
 use bevy_replicon_renet::RenetChannelsExt;
-use bevy_replicon_snap::{interpolation::{AppInterpolationExt, Interpolate}, NetworkOwner, SnapshotInterpolationPlugin};
+use bevy_replicon_renet::{
+    renet::{
+        transport::{
+            ClientAuthentication, NetcodeClientTransport, NetcodeServerTransport,
+            ServerAuthentication, ServerConfig,
+        },
+        ConnectionConfig, RenetClient, RenetServer,
+    },
+    RepliconRenetPlugins,
+};
+use bevy_replicon_snap::{
+    interpolation::AppInterpolationExt,
+    NetworkOwner, SnapshotInterpolationPlugin,
+};
 use clap::Parser;
 use player::{PlayerBundle, PlayerPlugin};
 use serde::{Deserialize, Serialize};
@@ -19,25 +43,27 @@ const PROTOCOL_ID: u64 = 0x1122334455667788;
 const MAX_TICK_RATE: u16 = 20;
 
 fn main() {
-
-    let mut app = App::new()
+    App::new()
         .init_resource::<Cli>()
         .insert_resource(WinitSettings {
             focused_mode: bevy::winit::UpdateMode::Continuous,
             unfocused_mode: bevy::winit::UpdateMode::Continuous,
         })
         .add_plugins((
-            DefaultPlugins.set(LogPlugin {
-                level: bevy::log::Level::DEBUG,
-                filter: "info,wgpu_core=warn,wgpu_hal=warn,replicon_test=debug".into(),
-                ..Default::default()
-            },).set(WindowPlugin {
-                primary_window: Some(Window {
-                    present_mode: PresentMode::Immediate,
+            DefaultPlugins
+                .set(LogPlugin {
+                    level: bevy::log::Level::DEBUG,
+                    filter: "info,wgpu_core=warn,wgpu_hal=warn,replicon_test=debug".into(),
                     ..Default::default()
-                }),
-                ..Default::default()
-            }).set(ImagePlugin::default_nearest()),
+                })
+                .set(WindowPlugin {
+                    primary_window: Some(Window {
+                        present_mode: PresentMode::Immediate,
+                        ..Default::default()
+                    }),
+                    ..Default::default()
+                })
+                .set(ImagePlugin::default_nearest()),
             RepliconPlugins.set(ServerPlugin {
                 tick_policy: TickPolicy::MaxTickRate(MAX_TICK_RATE),
                 ..Default::default()
@@ -53,12 +79,14 @@ fn main() {
         .add_client_event::<MoveEvent>(ChannelKind::Ordered)
         .add_client_event::<ActionEvent>(ChannelKind::Ordered)
         .add_systems(Startup, (read_cli.map(Result::unwrap), setup_camera))
-        .add_systems(Update, (read_input, handle_connections.run_if(has_authority)))
+        .add_systems(
+            Update,
+            (read_input, handle_connections.run_if(has_authority)),
+        )
         .replicate_interpolated::<Transform>()
         .replicate::<Name>()
         .run();
 }
-
 
 fn read_cli(
     mut commands: Commands,
@@ -89,7 +117,6 @@ fn read_cli(
 
             commands.insert_resource(server);
             commands.insert_resource(transport);
-
         }
         Cli::Client { port, ip } => {
             let server_channels_config = channels.get_server_configs();
@@ -131,18 +158,18 @@ fn setup_camera(mut commands: Commands) {
 fn handle_connections(
     mut commands: Commands,
     mut server_events: EventReader<ServerEvent>,
-    mut player_query: Query<(Entity, &NetworkOwner)>,
-)  {
+    player_query: Query<(Entity, &NetworkOwner)>,
+) {
     for event in server_events.read() {
         match event {
-            ServerEvent::ClientConnected{client_id} => {
+            ServerEvent::ClientConnected { client_id } => {
                 debug!("Client connected: {:?}", client_id);
                 commands.spawn(PlayerBundle::new(*client_id));
             }
-            ServerEvent::ClientDisconnected{client_id, reason} => {
-                debug!("Client disconnected: {:?}", client_id);
+            ServerEvent::ClientDisconnected { client_id, reason } => {
+                debug!("Client disconnected: {:?} Reason: {:?}", client_id, reason);
                 for (entity, owner) in player_query.iter() {
-                    if owner.0 == client_id.get()  {
+                    if owner.0 == client_id.get() {
                         commands.entity(entity).despawn_recursive();
                     }
                 }
@@ -157,7 +184,7 @@ fn read_input(
     mut action_ev: EventWriter<ActionEvent>,
 ) {
     let mut direction = Vec2::ZERO;
-    
+
     if input.pressed(KeyCode::KeyW) {
         direction.y += 1.0;
     }
@@ -175,16 +202,16 @@ fn read_input(
     }
 
     if input.just_pressed(KeyCode::Space) {
-        action_ev.send(ActionEvent { action: KeyCode::Space});
+        action_ev.send(ActionEvent {
+            action: KeyCode::Space,
+        });
     }
 }
-
 
 #[derive(Event, Serialize, Deserialize, Debug, Clone)]
 struct MoveEvent {
     pub input: Vec2,
 }
-
 
 #[derive(Event, Serialize, Deserialize, Debug, Clone)]
 struct ActionEvent {

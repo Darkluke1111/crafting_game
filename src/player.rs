@@ -1,7 +1,6 @@
-use bevy::{prelude::*};
-use bevy_replicon::{client::ClientSet, core::{ClientId, Replicated}, prelude::{has_authority, AppRuleExt, ChannelKind, FromClient, RepliconClient}};
-use bevy_replicon_renet::renet::RenetClient;
-use bevy_replicon_snap::{interpolation::Interpolated, prediction::{AppPredictionExt, OwnerPredicted, Predict}, NetworkOwner};
+use bevy::prelude::*;
+use bevy_replicon::{client::ClientSet, core::{ClientId, Replicated}, prelude::{AppRuleExt, ChannelKind}};
+use bevy_replicon_snap::{prediction::{AppPredictionExt, OwnerPredicted, Predict}, NetworkOwner};
 use serde::{Deserialize, Serialize};
 
 use crate::MoveEvent;
@@ -53,7 +52,7 @@ struct Player {
 fn init_player(
     mut commands: Commands,
     mut query: Query<Entity, (With<Player>, Without<GlobalTransform>)>,
-    mut asset_server: ResMut<AssetServer>,
+    asset_server: Res<AssetServer>,
 ) {
     for entity in query.iter_mut() {
         commands.entity(entity).insert((
