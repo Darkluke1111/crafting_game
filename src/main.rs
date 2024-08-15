@@ -9,9 +9,10 @@ use bevy::{
     winit::WinitSettings,
 };
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
+use bevy_rand::{plugin::EntropyPlugin, prelude::{EntropyComponent, WyRand}};
 use bevy_replicon::{
     prelude::{
-        has_authority, AppRuleExt, ChannelKind, ClientEventAppExt, RepliconChannels,
+        has_authority, AppRuleExt, ChannelKind, ClientEventAppExt, ParentSyncPlugin, RepliconChannels
     },
     server::{ServerEvent, ServerPlugin, TickPolicy},
     RepliconPlugins,
@@ -32,12 +33,14 @@ use bevy_replicon_snap::{
     NetworkOwner, SnapshotInterpolationPlugin,
 };
 use clap::Parser;
+use item::ItemPlugin;
 use player::{PlayerBundle, PlayerPlugin};
 use serde::{Deserialize, Serialize};
 use world::WorldPlugin;
 
 mod player;
 mod world;
+mod item;
 
 const PROTOCOL_ID: u64 = 0x1122334455667788;
 const MAX_TICK_RATE: u16 = 20;
@@ -70,11 +73,13 @@ fn main() {
             }),
             RepliconRenetPlugins,
             WorldInspectorPlugin::new(),
-            PlayerPlugin,
             SnapshotInterpolationPlugin {
-                max_tick_rate: MAX_TICK_RATE,
+                 max_tick_rate: MAX_TICK_RATE,
             },
+            EntropyPlugin::<WyRand>::default(),
+            PlayerPlugin,
             WorldPlugin,
+            ItemPlugin,
         ))
         .add_client_event::<MoveEvent>(ChannelKind::Ordered)
         .add_client_event::<ActionEvent>(ChannelKind::Ordered)
@@ -85,6 +90,7 @@ fn main() {
         )
         .replicate_interpolated::<Transform>()
         .replicate::<Name>()
+        .replicate::<EntropyComponent<WyRand>>()
         .run();
 }
 

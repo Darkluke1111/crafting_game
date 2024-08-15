@@ -13,6 +13,9 @@ bevy_replicon_renet = "0.4.0"
 bevy_replicon_snap = { git = "https://github.com/Darkluke1111/bevy_replicon_snap.git" }
 clap = { version = "4.5.13", features = ["derive"]}
 serde = "1.0.204"
+rand_core = "0.6"
+bevy_rand = { version = "0.7.1", features = ["wyrand"] }
+sickle_ui = "0.2.1"
 
 [profile.dev]
 opt-level = 1
@@ -27,4 +30,7 @@ linker = "rust-lld.exe"
 [target.x86_64-unknown-linux-gnu]
 linker = "clang"
 rustflags = ["-C", "link-arg=-fuse-ld=lld"]
+
+[[example]]
+name = "simple_box"
 

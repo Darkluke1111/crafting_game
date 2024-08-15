@@ -946,10 +946,41 @@ dependencies = [
 ]
 
 [[package]]
+name = "bevy_prng"
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "269637d82bcd4974227a961778b9e8266ef852bdb9e8e8f2d4d60d8bdb413250"
+dependencies = [
+ "bevy",
+ "rand_chacha",
+ "rand_core",
+ "rand_pcg",
+ "rand_xoshiro",
+ "serde",
+ "serde_derive",
+ "wyrand",
+]
+
+[[package]]
 name = "bevy_ptr"
 version = "0.14.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7ed72afbb6249a6803a3ed7bd2f68ff080d9392f550475e050b34c1e1c1e3e8f"
+
+[[package]]
+name = "bevy_rand"
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "75d0700a4b63cbddc1eee60ed962de275f08f598e1b047f3a2746b0962ac0324"
+dependencies = [
+ "bevy",
+ "bevy_prng",
+ "getrandom",
+ "rand_chacha",
+ "rand_core",
+ "serde",
+ "serde_derive",
+]
 
 [[package]]
 name = "bevy_rapier2d"
@@ -3723,6 +3754,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ppv-lite86"
+version = "0.2.20"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "77957b295656769bb8ad2b6a6b09d897d94f05c41b069aede1fcdaa675eaea04"
+dependencies = [
+ "zerocopy",
+]
+
+[[package]]
 name = "presser"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3792,12 +3832,44 @@ dependencies = [
 ]
 
 [[package]]
+name = "rand_chacha"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e6c10a63a0fa32252be49d21e7709d4d4baf8d231c2dbce1eaa8141b9b127d88"
+dependencies = [
+ "ppv-lite86",
+ "rand_core",
+ "serde",
+]
+
+[[package]]
 name = "rand_core"
 version = "0.6.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ec0be4795e2f6a28069bec0b5ff3e2ac9bafc99e6a9a7dc3547996c5c816922c"
 dependencies = [
  "getrandom",
+ "serde",
+]
+
+[[package]]
+name = "rand_pcg"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "59cad018caf63deb318e5a4586d99a24424a364f40f1e5778c29aca23f4fc73e"
+dependencies = [
+ "rand_core",
+ "serde",
+]
+
+[[package]]
+name = "rand_xoshiro"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6f97cdb2a36ed4183de61b2f824cc45c9f1037f28afe0a322e9fff4c108b5aaa"
+dependencies = [
+ "rand_core",
+ "serde",
 ]
 
 [[package]]
@@ -3946,12 +4018,15 @@ dependencies = [
  "bevy",
  "bevy-inspector-egui",
  "bevy_ecs_tilemap",
+ "bevy_rand",
  "bevy_rapier2d",
  "bevy_replicon",
  "bevy_replicon_renet",
  "bevy_replicon_snap",
  "clap",
+ "rand_core",
  "serde",
+ "sickle_ui",
 ]
 
 [[package]]
@@ -4119,6 +4194,55 @@ name = "shlex"
 version = "1.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0fda2ff0d084019ba4d7c6f371c95d8fd75ce3524c3cb8fb653a3023f6323e64"
+
+[[package]]
+name = "sickle_macros"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7dd8dc4b8e65085c964dcee4bc78fb71fb0329ee307864dd2f5d6b5f2e036017"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.72",
+]
+
+[[package]]
+name = "sickle_math"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7ce8d64122dd8c62ce6337ffdca13c2a0cae4a4055a5da52c378558f14f93047"
+dependencies = [
+ "bevy",
+ "serde",
+]
+
+[[package]]
+name = "sickle_ui"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d01b5189bdc7ef19ee31ca0ea50955ac68ac2b595feae983a3a77610a536597e"
+dependencies = [
+ "bevy",
+ "bevy_ecs_macros",
+ "bevy_reflect",
+ "serde",
+ "sickle_macros",
+ "sickle_math",
+ "sickle_ui_scaffold",
+]
+
+[[package]]
+name = "sickle_ui_scaffold"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1f0144a5f16f9e81f87810cbd33827e1bf17b1a8db96cf37843575ac5bf9a78e"
+dependencies = [
+ "bevy",
+ "bevy_reflect",
+ "serde",
+ "sickle_macros",
+ "sickle_math",
+]
 
 [[package]]
 name = "simba"
@@ -5375,6 +5499,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "wyrand"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "63970b9a6bb8379f699f260682532f50682616a09980b4ac612335214ba4ef1e"
+dependencies = [
+ "rand_core",
+ "serde",
+]
+
+[[package]]
 name = "x11-dl"
 version = "2.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5449,6 +5583,7 @@ version = "0.7.35"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1b9b4fd18abc82b8136838da5d50bae7bdea537c574d8dc1a34ed098d6c166f0"
 dependencies = [
+ "byteorder",
  "zerocopy-derive",
 ]
 
