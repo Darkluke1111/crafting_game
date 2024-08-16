@@ -10,13 +10,7 @@ use bevy::{
 };
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_rand::{plugin::EntropyPlugin, prelude::{EntropyComponent, WyRand}};
-use bevy_replicon::{
-    prelude::{
-        has_authority, AppRuleExt, ChannelKind, ClientEventAppExt, ParentSyncPlugin, RepliconChannels
-    },
-    server::{ServerEvent, ServerPlugin, TickPolicy},
-    RepliconPlugins,
-};
+use bevy_replicon::prelude::*;
 use bevy_replicon_renet::RenetChannelsExt;
 use bevy_replicon_renet::{
     renet::{
@@ -33,7 +27,9 @@ use bevy_replicon_snap::{
     NetworkOwner, SnapshotInterpolationPlugin,
 };
 use clap::Parser;
+use inventory_ui::{InventoryUI, InventoryUIPlugin};
 use item::ItemPlugin;
+use item_container::ItemContainerPlugin;
 use player::{PlayerBundle, PlayerPlugin};
 use serde::{Deserialize, Serialize};
 use world::WorldPlugin;
@@ -41,6 +37,8 @@ use world::WorldPlugin;
 mod player;
 mod world;
 mod item;
+mod inventory_ui;
+mod item_container;
 
 const PROTOCOL_ID: u64 = 0x1122334455667788;
 const MAX_TICK_RATE: u16 = 20;
@@ -80,6 +78,8 @@ fn main() {
             PlayerPlugin,
             WorldPlugin,
             ItemPlugin,
+            InventoryUIPlugin,
+            ItemContainerPlugin,
         ))
         .add_client_event::<MoveEvent>(ChannelKind::Ordered)
         .add_client_event::<ActionEvent>(ChannelKind::Ordered)
@@ -206,10 +206,9 @@ fn read_input(
     if direction != Vec2::ZERO {
         move_ev.send(MoveEvent { input: direction });
     }
-
-    if input.just_pressed(KeyCode::Space) {
+    for key in input.get_just_pressed() {
         action_ev.send(ActionEvent {
-            action: KeyCode::Space,
+            action: *key,
         });
     }
 }

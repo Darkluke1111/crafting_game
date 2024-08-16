@@ -6,12 +6,7 @@ use bevy_ecs_tilemap::{
     TilemapBundle,
 };
 use bevy_rand::prelude::*;
-use bevy_replicon::{
-    client::ClientSet,
-    core::Replicated,
-    prelude::{has_authority, server_running, AppRuleExt, FromClient, ParentSync},
-    server::ServerEvent,
-};
+use bevy_replicon::prelude::*;
 use bevy_replicon_snap::NetworkOwner;
 use serde::{Deserialize, Serialize};
 
@@ -74,7 +69,7 @@ fn init_chunk(
     mut commands: Commands,
     query: Query<Entity, (With<Chunk>, Without<TilemapGridSize>)>,
     asset_server: Res<AssetServer>,
-    mut events: EventReader<ServerEvent>,
+    events: EventReader<ServerEvent>,
 ) {
     let texture_handle: Handle<Image> = asset_server.load("tiles.png");
     let tile_storage = TileStorage::empty(MAP_SIZE);
@@ -97,7 +92,8 @@ fn apply_action(
     player_query: Query<(&NetworkOwner, &Transform)>,
     mut events: EventReader<FromClient<ActionEvent>>,
 ) -> Option<()> {
-    for FromClient { client_id, .. } in events.read() {
+    for FromClient { client_id, event } in events.read() {
+        if event.action != KeyCode::Space {continue;}
         if let Some((_, t)) = player_query.iter().find(|p| p.0 .0 == client_id.get()) {
             let tile_pos = TilePos::from_world_pos(
                 &t.translation.xy(),
