@@ -1,9 +1,9 @@
-use bevy::{asset::AssetServer, math::Vec2, prelude::*, sprite::{Sprite, SpriteBundle}, utils::HashMap, };
+use bevy::{asset::AssetServer, math::Vec2, prelude::*, sprite::{Sprite, SpriteBundle}, };
 use bevy_replicon::prelude::*;
 use bevy_replicon_snap::NetworkOwner;
 use serde::{Deserialize, Serialize};
 
-use crate::{item_container::ItemContainer, ActionEvent};
+use crate::ActionEvent;
 
 pub struct ItemPlugin;
 

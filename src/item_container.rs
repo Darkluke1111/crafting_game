@@ -1,8 +1,8 @@
 use bevy::prelude::*;
-use bevy_replicon::{core::Replicated, prelude::{has_authority, AppRuleExt}};
+use bevy_replicon::{core::Replicated, prelude::AppRuleExt};
 use serde::{Deserialize, Serialize};
 
-use crate::{handle_connections, item::Item, read_cli, Cli};
+use crate::{item::Item, read_cli, Cli};
 
 
 pub struct ItemContainerPlugin;

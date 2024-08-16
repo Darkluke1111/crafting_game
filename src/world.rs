@@ -10,7 +10,7 @@ use bevy_replicon::prelude::*;
 use bevy_replicon_snap::NetworkOwner;
 use serde::{Deserialize, Serialize};
 
-use crate::{ActionEvent, Cli};
+use crate::ActionEvent;
 
 const MAP_SIZE: TilemapSize = TilemapSize { x: 32, y: 32 };
 const TILE_SIZE: TilemapTileSize = TilemapTileSize { x: 16.0, y: 16.0 };
@@ -18,7 +18,6 @@ const GRID_SIZE: TilemapGridSize = TilemapGridSize { x: 16.0, y: 16.0 };
 
 fn setup_world(
     mut commands: Commands,
-    cli: Res<Cli>,
     mut events: EventReader<ServerEvent>,
     query: Query<&Chunk>,
     mut glob: ResMut<GlobalEntropy<WyRand>>,
@@ -28,7 +27,7 @@ fn setup_world(
     }
     for event in events.read() {
         match event {
-            ServerEvent::ClientConnected { client_id } => {
+            ServerEvent::ClientConnected { .. } => {
                 let map_size = TilemapSize { x: 32, y: 32 };
                 let tilemap_entity = commands.spawn_empty().id();
                 let mut tile_storage = TileStorage::empty(map_size);
@@ -69,7 +68,6 @@ fn init_chunk(
     mut commands: Commands,
     query: Query<Entity, (With<Chunk>, Without<TilemapGridSize>)>,
     asset_server: Res<AssetServer>,
-    events: EventReader<ServerEvent>,
 ) {
     let texture_handle: Handle<Image> = asset_server.load("tiles.png");
     let tile_storage = TileStorage::empty(MAP_SIZE);
@@ -123,14 +121,6 @@ pub enum Ground {
 }
 
 pub struct WorldPlugin;
-
-fn test_system(
-    mut commands: Commands,
-) {
-    commands.spawn((Name::new("Parent"), Replicated)).with_children(|parent| {
-        parent.spawn((Name::new("Child"), Replicated, ParentSync::default()));
-    });
-}
 
 impl Plugin for WorldPlugin {
     fn build(&self, app: &mut App) {

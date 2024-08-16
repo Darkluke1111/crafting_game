@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use bevy_replicon::prelude::client_connected;
 use sickle_ui::prelude::*;
 
-use crate::{item::Item, item_container::ItemContainer, ActionEvent};
+use crate::{item_container::ItemContainer, ActionEvent};
 
 
 pub struct InventoryUIPlugin;

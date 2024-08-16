@@ -27,7 +27,7 @@ use bevy_replicon_snap::{
     NetworkOwner, SnapshotInterpolationPlugin,
 };
 use clap::Parser;
-use inventory_ui::{InventoryUI, InventoryUIPlugin};
+use inventory_ui::InventoryUIPlugin;
 use item::ItemPlugin;
 use item_container::ItemContainerPlugin;
 use player::{PlayerBundle, PlayerPlugin};
