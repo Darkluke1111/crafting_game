@@ -1,0 +1,6 @@
+- flesh out Items
+- Collisions
+- persistence for chunks
+- basic world gen
+- flesh out world objects
+- fix palyer animation

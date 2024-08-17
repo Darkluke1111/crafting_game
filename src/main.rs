@@ -10,6 +10,7 @@ use bevy::{
 };
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_rand::{plugin::EntropyPlugin, prelude::{EntropyComponent, WyRand}};
+use bevy_rapier2d::prelude::*;
 use bevy_replicon::prelude::*;
 use bevy_replicon_renet::RenetChannelsExt;
 use bevy_replicon_renet::{
@@ -26,6 +27,7 @@ use bevy_replicon_snap::{
     interpolation::AppInterpolationExt,
     NetworkOwner, SnapshotInterpolationPlugin,
 };
+use camera::CameraPlugin;
 use clap::Parser;
 use inventory_ui::InventoryUIPlugin;
 use item::ItemPlugin;
@@ -33,12 +35,15 @@ use item_container::ItemContainerPlugin;
 use player::{PlayerBundle, PlayerPlugin};
 use serde::{Deserialize, Serialize};
 use world::WorldPlugin;
+use world_object::WorldObjectPlugin;
 
 mod player;
 mod world;
 mod item;
 mod inventory_ui;
 mod item_container;
+mod world_object;
+mod camera;
 
 const PROTOCOL_ID: u64 = 0x1122334455667788;
 const MAX_TICK_RATE: u16 = 20;
@@ -80,10 +85,15 @@ fn main() {
             ItemPlugin,
             InventoryUIPlugin,
             ItemContainerPlugin,
+            WorldObjectPlugin,
+            CameraPlugin,
+            
         ))
+        .add_plugins(RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(100.0))
+        .add_plugins(RapierDebugRenderPlugin::default())
         .add_client_event::<MoveEvent>(ChannelKind::Ordered)
         .add_client_event::<ActionEvent>(ChannelKind::Ordered)
-        .add_systems(Startup, (read_cli.map(Result::unwrap), setup_camera))
+        .add_systems(Startup, (read_cli.map(Result::unwrap), ))
         .add_systems(
             Update,
             (read_input, handle_connections.run_if(has_authority)),
@@ -152,13 +162,6 @@ fn read_cli(
     }
 
     Ok(())
-}
-
-fn setup_camera(mut commands: Commands) {
-    commands.spawn(Camera2dBundle {
-        transform: Transform::from_translation(Vec3::new(0.0, 0.0, 1.0)),
-        ..Default::default()
-    });
 }
 
 fn handle_connections(
