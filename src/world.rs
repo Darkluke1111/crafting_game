@@ -1,10 +1,9 @@
 use bevy::{
     color::palettes::css::{RED, YELLOW},
-    math::VectorSpace,
     prelude::*,
 };
 use bevy_ecs_tilemap::{
-    map::{TilemapId, TilemapSize, TilemapTexture, TilemapTileSize, TilemapType}, prelude::*, tiles::{TileBundle, TilePos, TileStorage}, FrustumCulling, TilemapBundle
+    map::{TilemapId, TilemapSize, TilemapTexture, TilemapTileSize, TilemapType}, prelude::*, tiles::{TileBundle, TilePos, TileStorage}, FrustumCulling
 };
 use bevy_mod_picking::{
     events::{Click, Pointer},
@@ -16,7 +15,7 @@ use bevy_replicon_snap::NetworkOwner;
 use rand_core::RngCore;
 use serde::{Deserialize, Serialize};
 
-use crate::{camera::CameraView, player::Player, world_object::spawn_world_object, ActionEvent};
+use crate::{player::Player, ActionEvent};
 
 const TILES_PER_CHUNK: u32 = 4;
 const TILE_LENGTH: f32 = 32.0;
@@ -135,7 +134,7 @@ fn update_ground_texture(
 
 fn init_chunk(
     mut commands: Commands,
-    query: Query<(Entity, &Chunk), (Without<TilemapGridSize>)>,
+    query: Query<(Entity, &Chunk), Without<TilemapGridSize>>,
     asset_server: Res<AssetServer>,
 ) {
     let texture_handle: Handle<Image> = asset_server.load("TX Tileset Grass.png");
@@ -209,7 +208,7 @@ fn detect_tile_click(mut click_events: EventReader<Pointer<Click>>) {
     }
 }
 
-fn debug_draw_chunk_borders(chunk_query: Query<(&Chunk)>, mut gizmos: Gizmos) {
+fn debug_draw_chunk_borders(chunk_query: Query<&Chunk>, mut gizmos: Gizmos) {
     for chunk in chunk_query.iter() {
         let pos = chunk.get_world_coords();
         gizmos.circle_2d(pos, 1.0, RED);
@@ -223,7 +222,7 @@ fn debug_draw_chunk_borders(chunk_query: Query<(&Chunk)>, mut gizmos: Gizmos) {
 }
 
 fn debug_draw_tile_borders(
-    chunk_query: Query<(&Chunk)>,
+    chunk_query: Query<&Chunk>,
     tile_query: Query<(&TilePos, &Parent)>,
     mut gizmos: Gizmos,
 ) {

@@ -12,7 +12,7 @@ use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_mod_picking::{debug::DebugPickingMode, DefaultPickingPlugins};
 use bevy_rand::{plugin::EntropyPlugin, prelude::{EntropyComponent, WyRand}};
 use bevy_rapier2d::prelude::*;
-use bevy_replicon::{prelude::*, server::server_tick::ServerTick};
+use bevy_replicon::prelude::*;
 use bevy_replicon_renet::RenetChannelsExt;
 use bevy_replicon_renet::{
     renet::{
@@ -223,22 +223,6 @@ fn read_input(
             action: *key,
         });
     }
-}
-
-#[derive(Debug, Resource)]
-struct TickTime(f32);
-
-fn debug_print_server_tick(
-    server_tick: Res<ServerTick>,
-    mut tick_time: ResMut<TickTime>,
-    time: Res<Time>,
-) {
-    if server_tick.is_changed() {
-        let diff = time.elapsed_seconds_wrapped() - tick_time.0;
-        tick_time.0 = time.elapsed_seconds_wrapped();
-        dbg!(diff*1000.0);
-    }
-    
 }
 
 #[derive(Event, Serialize, Deserialize, Debug, Clone)]

@@ -45,7 +45,7 @@ fn init_world_objets(
     let mut layout = TextureAtlasLayout::new_empty(UVec2::new(512, 512));
     layout.add_texture(URect::new(162, 16, 190, 64));
     let texture_atlas_layout = texture_atlas_layouts.add(layout);
-    for (entity, item ) in query.iter() {
+    for (entity, _item ) in query.iter() {
         commands.entity(entity).insert((
             Sprite::default(),
             TextureAtlas {

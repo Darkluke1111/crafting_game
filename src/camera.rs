@@ -1,9 +1,8 @@
-use bevy::{color::palettes::css::GREEN, math::VectorSpace, prelude::*};
+use bevy::{color::palettes::css::GREEN, prelude::*};
 use bevy_replicon::{
     core::ClientId,
     prelude::{client_connected, RepliconClient},
 };
-use bevy_replicon_renet::renet::RenetClient;
 use bevy_replicon_snap::NetworkOwner;
 
 pub struct CameraPlugin;

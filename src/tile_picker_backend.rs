@@ -6,7 +6,7 @@ use bevy::{
     }, math::{Vec2, Vec4}, prelude::{App, Gizmos, Vec4Swizzles}, render::{
         camera::{Camera, OrthographicProjection},
         view::ViewVisibility,
-    }, transform::components::GlobalTransform, utils::dbg, window::PrimaryWindow
+    }, transform::components::GlobalTransform, window::PrimaryWindow
 };
 use bevy_ecs_tilemap::{
     map::{TilemapGridSize, TilemapSize, TilemapType},
@@ -84,7 +84,7 @@ fn tile_picking(
         let picks = tilemap_q
             .iter()
             .filter(|(.., vis)| vis.get())
-            .filter_map(|(chunk, t_s, tgs, tty, t_store, gt, ..)| {
+            .filter_map(|(_chunk, _t_s, _tgs, _tty, t_store, gt, ..)| {
                 if blocked {
                     return None;
                 }

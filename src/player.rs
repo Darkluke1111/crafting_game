@@ -137,7 +137,7 @@ fn animate_player(
 }
 
 impl Predict<MoveEvent, Player> for Transform {
-    fn apply_event(&mut self, event: &MoveEvent, delta_time: f32, context: &Player) {
+    fn apply_event(&mut self, event: &MoveEvent, _delta_time: f32, context: &Player) {
         self.translation += event.input.extend(0.0) * 0.005 * context.speed;
     }
 }
