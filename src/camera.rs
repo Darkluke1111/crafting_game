@@ -46,10 +46,10 @@ fn get_camera_view(
     window: &Window,
     camera: &Camera,
 
-) -> Rect {
-    let corner1 = camera.viewport_to_world_2d(camera_transform, Vec2 { x: window.size().x, y: 0.0 }).unwrap();
-    let corner2 = camera.viewport_to_world_2d(camera_transform, Vec2 { x: 0.0 , y: window.size().y}).unwrap();
-    Rect::from_corners( corner1, corner2)
+) -> Option<Rect> {
+    let corner1 = camera.viewport_to_world_2d(camera_transform, Vec2 { x: window.size().x, y: 0.0 })?;
+    let corner2 = camera.viewport_to_world_2d(camera_transform, Vec2 { x: 0.0 , y: window.size().y})?;
+    Some(Rect::from_corners( corner1, corner2))
 }
 
 fn draw_camera_gizmo(
@@ -83,5 +83,10 @@ fn update_camera_view(
 ) {
     let (cam, proj) = camera_query.single();
     let win = window_query.single();
-    camera_view.0 = get_camera_view(cam, win, proj);
+
+    match get_camera_view(cam, win, proj) {
+        Some(view) => camera_view.0 = view,
+        None => {}
+    }
+    
 }

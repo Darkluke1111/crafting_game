@@ -9,9 +9,10 @@ use bevy::{
     winit::WinitSettings,
 };
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
+use bevy_mod_picking::{debug::DebugPickingMode, DefaultPickingPlugins};
 use bevy_rand::{plugin::EntropyPlugin, prelude::{EntropyComponent, WyRand}};
 use bevy_rapier2d::prelude::*;
-use bevy_replicon::prelude::*;
+use bevy_replicon::{prelude::*, server::server_tick::ServerTick};
 use bevy_replicon_renet::RenetChannelsExt;
 use bevy_replicon_renet::{
     renet::{
@@ -34,6 +35,7 @@ use item::ItemPlugin;
 use item_container::ItemContainerPlugin;
 use player::{PlayerBundle, PlayerPlugin};
 use serde::{Deserialize, Serialize};
+use tile_picker_backend::TilemapBackend;
 use world::WorldPlugin;
 use world_object::WorldObjectPlugin;
 
@@ -44,6 +46,7 @@ mod inventory_ui;
 mod item_container;
 mod world_object;
 mod camera;
+mod tile_picker_backend;
 
 const PROTOCOL_ID: u64 = 0x1122334455667788;
 const MAX_TICK_RATE: u16 = 20;
@@ -51,10 +54,13 @@ const MAX_TICK_RATE: u16 = 20;
 fn main() {
     App::new()
         .init_resource::<Cli>()
+        // .insert_resource(TickTime(0.0))
+        // .add_systems(PostUpdate, debug_print_server_tick)
         .insert_resource(WinitSettings {
             focused_mode: bevy::winit::UpdateMode::Continuous,
             unfocused_mode: bevy::winit::UpdateMode::Continuous,
         })
+        .insert_resource(DebugPickingMode::Normal)
         .add_plugins((
             DefaultPlugins
                 .set(LogPlugin {
@@ -64,7 +70,7 @@ fn main() {
                 })
                 .set(WindowPlugin {
                     primary_window: Some(Window {
-                        present_mode: PresentMode::Immediate,
+                        present_mode: PresentMode::AutoNoVsync,
                         ..Default::default()
                     }),
                     ..Default::default()
@@ -80,6 +86,8 @@ fn main() {
                  max_tick_rate: MAX_TICK_RATE,
             },
             EntropyPlugin::<WyRand>::default(),
+            DefaultPickingPlugins,
+            TilemapBackend,
             PlayerPlugin,
             WorldPlugin,
             ItemPlugin,
@@ -191,6 +199,7 @@ fn read_input(
     input: Res<ButtonInput<KeyCode>>,
     mut move_ev: EventWriter<MoveEvent>,
     mut action_ev: EventWriter<ActionEvent>,
+    time: Res<Time>,
 ) {
     let mut direction = Vec2::ZERO;
 
@@ -207,7 +216,7 @@ fn read_input(
         direction.x += 1.0;
     }
     if direction != Vec2::ZERO {
-        move_ev.send(MoveEvent { input: direction });
+        move_ev.send(MoveEvent { input: direction, timestamp: time.elapsed_seconds_wrapped() });
     }
     for key in input.get_just_pressed() {
         action_ev.send(ActionEvent {
@@ -216,9 +225,26 @@ fn read_input(
     }
 }
 
+#[derive(Debug, Resource)]
+struct TickTime(f32);
+
+fn debug_print_server_tick(
+    server_tick: Res<ServerTick>,
+    mut tick_time: ResMut<TickTime>,
+    time: Res<Time>,
+) {
+    if server_tick.is_changed() {
+        let diff = time.elapsed_seconds_wrapped() - tick_time.0;
+        tick_time.0 = time.elapsed_seconds_wrapped();
+        dbg!(diff*1000.0);
+    }
+    
+}
+
 #[derive(Event, Serialize, Deserialize, Debug, Clone)]
-struct MoveEvent {
-    pub input: Vec2,
+pub struct MoveEvent {
+    input: Vec2,
+    timestamp: f32,
 }
 
 #[derive(Event, Serialize, Deserialize, Debug, Clone)]

@@ -4,10 +4,11 @@ use bevy::{
     prelude::*,
 };
 use bevy_ecs_tilemap::{
-    map::{TilemapId, TilemapSize, TilemapTexture, TilemapTileSize, TilemapType},
-    prelude::*,
-    tiles::{TileBundle, TilePos, TileStorage},
-    TilemapBundle,
+    map::{TilemapId, TilemapSize, TilemapTexture, TilemapTileSize, TilemapType}, prelude::*, tiles::{TileBundle, TilePos, TileStorage}, FrustumCulling, TilemapBundle
+};
+use bevy_mod_picking::{
+    events::{Click, Pointer},
+    prelude::On,
 };
 use bevy_rand::prelude::*;
 use bevy_replicon::prelude::*;
@@ -17,7 +18,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{camera::CameraView, player::Player, world_object::spawn_world_object, ActionEvent};
 
-const TILES_PER_CHUNK: u32 = 8;
+const TILES_PER_CHUNK: u32 = 4;
 const TILE_LENGTH: f32 = 32.0;
 
 const MAP_SIZE: TilemapSize = TilemapSize {
@@ -37,33 +38,7 @@ const GRID_SIZE: TilemapGridSize = TilemapGridSize {
 struct ViewDistance(f32);
 impl Default for ViewDistance {
     fn default() -> Self {
-        Self(20.0)
-    }
-}
-
-fn setup_world(
-    mut commands: Commands,
-    mut events: EventReader<ServerEvent>,
-    query: Query<&Chunk>,
-    mut glob: ResMut<GlobalEntropy<WyRand>>,
-) {
-    if !query.is_empty() {
-        return;
-    }
-    for event in events.read() {
-        match event {
-            ServerEvent::ClientConnected { .. } => {
-                warn!("Doing startup!");
-
-                for chunk_x in -1..=1 {
-                    for chunk_y in -1..=1 {
-                        spawn_chunk_stub(&mut commands, IVec2::new(chunk_x, chunk_y), &mut glob);
-                    }
-                }
-                spawn_world_object(&mut commands, Vec2::new(10.0, 40.0));
-            }
-            _ => {}
-        }
+        Self(10.0)
     }
 }
 
@@ -90,12 +65,16 @@ fn spawn_chunk_stub(commands: &mut Commands, chunk_index: IVec2, glob: &mut Glob
                             Name::new("Tile"),
                             ParentSync::default(),
                             glob.fork_rng(),
+                            On::<Pointer<Click>>::target_commands_mut(|_click, target_commands| {
+                                dbg!("Clicked me!");
+                            }),
                         ))
                         .id();
                     tile_storage.set(&tile_pos, tile_entity);
                 }
             }
         });
+    commands.entity(tilemap_entity).insert(tile_storage);
 }
 
 fn manage_loaded_chunks(
@@ -103,6 +82,7 @@ fn manage_loaded_chunks(
     chunk_query: Query<(Entity, &Chunk)>,
     player_query: Query<&Transform, With<Player>>,
     view_distance: Res<ViewDistance>,
+    mut glob: ResMut<GlobalEntropy<WyRand>>,
 ) {
     let mut allowed_chunk_indices = Vec::new();
     for player_transform in player_query.iter() {
@@ -114,10 +94,17 @@ fn manage_loaded_chunks(
     }
     for (entity, chunk) in chunk_query.iter() {
         if !allowed_chunk_indices.contains(&chunk.chunk_index) {
-            commands.entity(entity).despawn();
+            commands.entity(entity).despawn_recursive();
         } else {
-            todo!("How to remove stuff from vec?!?!?!");
+            let pos = allowed_chunk_indices
+                .iter()
+                .position(|x| *x == chunk.chunk_index)
+                .expect("Couldn't find chunk in allowed indices!");
+            allowed_chunk_indices.swap_remove(pos);
         }
+    }
+    for chunk_to_spawn in allowed_chunk_indices {
+        spawn_chunk_stub(&mut commands, chunk_to_spawn, &mut glob);
     }
 }
 
@@ -152,23 +139,45 @@ fn init_chunk(
     asset_server: Res<AssetServer>,
 ) {
     let texture_handle: Handle<Image> = asset_server.load("TX Tileset Grass.png");
-    let tile_storage = TileStorage::empty(MAP_SIZE);
     let map_type = TilemapType::default();
     for (entity, chunk) in query.iter() {
-        commands.entity(entity).insert(TilemapBundle {
+        commands.entity(entity).insert(RenderTilemapBundle {
             grid_size: GRID_SIZE,
             map_type,
             size: MAP_SIZE,
-            storage: tile_storage.clone(),
             texture: TilemapTexture::Single(texture_handle.clone()),
             transform: Transform::from_translation(
                 chunk.get_world_coords().extend(0.0)
                     + Vec3::new(TILE_LENGTH, TILE_LENGTH, 0.0) * 0.5,
             ),
             tile_size: TILE_SIZE,
+
             ..Default::default()
-        });
+        },
+    );
     }
+}
+
+#[derive(Bundle, Debug, Default, Clone)]
+pub struct RenderTilemapBundle {
+    pub grid_size: TilemapGridSize,
+    pub map_type: TilemapType,
+    pub size: TilemapSize,
+    pub spacing: TilemapSpacing,
+    pub texture: TilemapTexture,
+    pub tile_size: TilemapTileSize,
+    pub transform: Transform,
+    pub global_transform: GlobalTransform,
+    pub render_settings: TilemapRenderSettings,
+    /// User indication of whether an entity is visible
+    pub visibility: Visibility,
+    /// Algorithmically-computed indication of whether an entity is visible and should be extracted
+    /// for rendering
+    pub inherited_visibility: InheritedVisibility,
+    pub view_visibility: ViewVisibility,
+    /// User indication of whether tilemap should be frustum culled.
+    pub frustum_culling: FrustumCulling,
+    pub material: Handle<StandardTilemapMaterial>,
 }
 
 fn apply_action(
@@ -192,6 +201,12 @@ fn apply_action(
         }
     }
     Some(())
+}
+
+fn detect_tile_click(mut click_events: EventReader<Pointer<Click>>) {
+    for click in click_events.read() {
+        dbg!("Click!");
+    }
 }
 
 fn debug_draw_chunk_borders(chunk_query: Query<(&Chunk)>, mut gizmos: Gizmos) {
@@ -227,26 +242,25 @@ pub struct Chunk {
 }
 
 impl Chunk {
-    fn get_world_coords(&self) -> Vec2 {
+    pub fn get_world_coords(&self) -> Vec2 {
         let x = self.chunk_index.x as f32 * TILES_PER_CHUNK as f32 * TILE_LENGTH;
         let y = self.chunk_index.y as f32 * TILES_PER_CHUNK as f32 * TILE_LENGTH;
         Vec2 { x, y }
     }
 
-    fn get_size(&self) -> Vec2 {
+    pub fn get_size(&self) -> Vec2 {
         Vec2::splat(TILES_PER_CHUNK as f32 * TILE_LENGTH)
     }
 }
 
-fn chunk_indices_inside(rect: Rect) -> Vec<IVec2> {
+pub fn chunk_indices_inside(rect: Rect) -> Vec<IVec2> {
     let mut indices = Vec::new();
-    let units_per_chunk = TILES_PER_CHUNK as i32 * TILE_LENGTH  as i32;
+    let units_per_chunk = TILES_PER_CHUNK as i32 * TILE_LENGTH as i32;
     for x in (rect.min.x as i32) / units_per_chunk..(rect.max.x as i32) / units_per_chunk {
         for y in (rect.min.y as i32) / units_per_chunk..(rect.max.y as i32) / units_per_chunk {
             indices.push(IVec2 { x, y })
         }
     }
-    debug!("{:?}", indices);
     return indices;
 }
 
@@ -275,21 +289,24 @@ impl Plugin for WorldPlugin {
             .replicate::<TilePosOld>()
             .add_systems(
                 PreUpdate,
-                setup_world
-                    .run_if(server_running)
-                    .after(ClientSet::SyncHierarchy),
-            )
-            .add_systems(
-                PreUpdate,
                 manage_loaded_chunks
                     .run_if(server_running)
                     .after(ClientSet::SyncHierarchy),
             )
             .add_systems(
                 PreUpdate,
-                init_chunk.after(ClientSet::Receive).after(setup_world),
+                init_chunk
+                    .after(ClientSet::Receive)
+                    .after(manage_loaded_chunks),
             )
-            .add_systems(Update, (debug_draw_chunk_borders, debug_draw_tile_borders))
+            .add_systems(
+                Update,
+                (
+                    debug_draw_chunk_borders,
+                    debug_draw_tile_borders,
+                    detect_tile_click,
+                ),
+            )
             .add_systems(
                 Update,
                 (
@@ -297,5 +314,25 @@ impl Plugin for WorldPlugin {
                     update_ground_texture,
                 ),
             );
+    }
+}
+
+pub trait ChunkPosExt {
+    fn from_in_chunk_pos(pos: Vec2) -> Option<Self>
+    where
+        Self: Sized;
+    fn get_in_chunk_pos(&self) -> Vec2;
+}
+
+impl ChunkPosExt for TilePos {
+    fn from_in_chunk_pos(pos: Vec2) -> Option<Self> {
+        let tile_pos = (pos / TILE_LENGTH).trunc();
+        let tile_pos = TilePos::from_i32_pair(tile_pos.x as i32, tile_pos.y as i32, &MAP_SIZE);
+        //dbg!(tile_pos);
+        return tile_pos;
+    }
+
+    fn get_in_chunk_pos(&self) -> Vec2 {
+        todo!()
     }
 }
