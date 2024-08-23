@@ -21,7 +21,9 @@ use bevy_mod_picking::{
 pub use bevy_ecs_tilemap;
 pub use bevy_mod_picking;
 
-use crate::world::{Chunk, ChunkPosExt, TILE_LENGTH};
+use crate::{chunk::{Chunk, TILE_LENGTH}, world::ChunkPosExt};
+
+
 
 /// `bevy_ecs_tilemap` backend for `bevy_mod_picking`
 ///
