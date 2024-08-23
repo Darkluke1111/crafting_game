@@ -6,12 +6,13 @@ edition = "2021"
 [dependencies]
 bevy = { version = "0.14.1", features = ["dynamic_linking","serialize"] }
 bevy-inspector-egui = "0.25.0"
-bevy_ecs_tilemap = { version = "0.14.0", features = ["serde", "atlas"] }
+bevy_ecs_tilemap = { git = "https://github.com/Darkluke1111/bevy_ecs_tilemap.git", rev = "f80dc68", features = ["serde", "atlas"] }
 bevy_rapier2d = "0.27.0"
 bevy_replicon = "0.27.0"
 bevy_replicon_renet = "0.4.0"
 bevy_replicon_snap = { git = "https://github.com/Darkluke1111/bevy_replicon_snap.git" }
 clap = { version = "4.5.13", features = ["derive"]}
+ron = "0.8"
 serde = "1.0.204"
 rand_core = "0.6"
 bevy_rand = { version = "0.7.1", features = ["wyrand"] }

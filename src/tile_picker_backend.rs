@@ -1,9 +1,9 @@
 #![allow(clippy::needless_pass_by_value)]
 
 use bevy::{
-    app::{Plugin, PreUpdate}, color::palettes::css::BLUE, ecs::{
+    app::{Plugin, PreUpdate}, ecs::{
         entity::Entity, event::EventWriter, query::With, schedule::IntoSystemConfigs, system::Query,
-    }, math::{Vec2, Vec4}, prelude::{App, Gizmos, Vec4Swizzles}, render::{
+    }, math::{Vec2, Vec4}, prelude::*, render::{
         camera::{Camera, OrthographicProjection},
         view::ViewVisibility,
     }, transform::components::GlobalTransform, window::PrimaryWindow
@@ -21,7 +21,7 @@ use bevy_mod_picking::{
 pub use bevy_ecs_tilemap;
 pub use bevy_mod_picking;
 
-use crate::world::{Chunk, ChunkPosExt};
+use crate::world::{Chunk, ChunkPosExt, TILE_LENGTH};
 
 /// `bevy_ecs_tilemap` backend for `bevy_mod_picking`
 ///
@@ -50,7 +50,6 @@ fn tile_picking(
     )>,
     tile_q: Query<(&TileVisible, Option<&Pickable>)>,
     mut output: EventWriter<PointerHits>,
-    mut gizmos: Gizmos,
 ) {
     for (p_id, p_loc) in pointers
         .iter()
@@ -79,8 +78,6 @@ fn tile_picking(
             continue;
         };
 
-        
-
         let picks = tilemap_q
             .iter()
             .filter(|(.., vis)| vis.get())
@@ -91,9 +88,8 @@ fn tile_picking(
                 let in_map_pos: Vec2 = {
                     let pos = Vec4::from((cursor_pos_world, 0., 1.));
                     let in_map_pos = gt.compute_matrix().inverse() * pos;
-                    in_map_pos.xy()
+                    in_map_pos.xy() + Vec2::splat(TILE_LENGTH/2.0)
                 };
-                gizmos.circle_2d(in_map_pos, 1.0, BLUE);
                 let picked: Entity = TilePos::from_in_chunk_pos(in_map_pos)
                     .and_then(|tile_pos| t_store.get(&tile_pos))?;
                 let (vis, pck) = tile_q.get(picked).ok()?;

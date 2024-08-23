@@ -5,8 +5,7 @@ use std::{
 };
 
 use bevy::{
-    log::LogPlugin, prelude::*, window::PresentMode,
-    winit::WinitSettings,
+    ecs::entity::MapEntities, log::LogPlugin, prelude::*, window::PresentMode, winit::WinitSettings
 };
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_mod_picking::{debug::DebugPickingMode, DefaultPickingPlugins};
@@ -29,6 +28,7 @@ use bevy_replicon_snap::{
     NetworkOwner, SnapshotInterpolationPlugin,
 };
 use camera::CameraPlugin;
+use chunk::ChunkPlugin;
 use clap::Parser;
 use inventory_ui::InventoryUIPlugin;
 use item::ItemPlugin;
@@ -47,6 +47,7 @@ mod item_container;
 mod world_object;
 mod camera;
 mod tile_picker_backend;
+mod chunk;
 
 const PROTOCOL_ID: u64 = 0x1122334455667788;
 const MAX_TICK_RATE: u16 = 20;
@@ -95,12 +96,15 @@ fn main() {
             ItemContainerPlugin,
             WorldObjectPlugin,
             CameraPlugin,
-            
+        ))
+        .add_plugins((
+            ChunkPlugin
         ))
         .add_plugins(RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(100.0))
         .add_plugins(RapierDebugRenderPlugin::default())
         .add_client_event::<MoveEvent>(ChannelKind::Ordered)
         .add_client_event::<ActionEvent>(ChannelKind::Ordered)
+        .add_mapped_client_event::<ClickTileEvent>(ChannelKind::Ordered)
         .add_systems(Startup, (read_cli.map(Result::unwrap), ))
         .add_systems(
             Update,
@@ -234,6 +238,18 @@ pub struct MoveEvent {
 #[derive(Event, Serialize, Deserialize, Debug, Clone)]
 struct ActionEvent {
     pub action: KeyCode,
+}
+
+
+#[derive(Event, Serialize, Deserialize, Debug, Clone)]
+pub struct ClickTileEvent {
+    tile: Entity
+}
+
+impl MapEntities for ClickTileEvent {
+    fn map_entities<M: EntityMapper>(&mut self, entity_mapper: &mut M) {
+        self.tile = entity_mapper.map_entity(self.tile);
+    }
 }
 
 const PORT: u16 = 5000;

@@ -1,10 +1,15 @@
+use std::{fs::File, io::{Read, Write}, path::Path};
+
 use bevy::{
-    color::palettes::css::{RED, YELLOW},
-    prelude::*,
+    asset::AssetPath, color::palettes::css::{RED, YELLOW}, ecs::{reflect, world::CommandQueue}, prelude::*, scene::{ron, serde::SceneDeserializer}, tasks::{block_on, futures_lite::future, IoTaskPool, Task}, utils::dbg
 };
 use bevy_ecs_tilemap::{
-    map::{TilemapId, TilemapSize, TilemapTexture, TilemapTileSize, TilemapType}, prelude::*, tiles::{TileBundle, TilePos, TileStorage}, FrustumCulling
+    map::{TilemapId, TilemapSize, TilemapTexture, TilemapTileSize, TilemapType},
+    prelude::*,
+    tiles::{TileBundle, TilePos, TileStorage},
+    FrustumCulling,
 };
+use bevy_inspector_egui::egui::load;
 use bevy_mod_picking::{
     events::{Click, Pointer},
     prelude::On,
@@ -13,22 +18,22 @@ use bevy_rand::prelude::*;
 use bevy_replicon::prelude::*;
 use bevy_replicon_snap::NetworkOwner;
 use rand_core::RngCore;
-use serde::{Deserialize, Serialize};
+use serde::{de::DeserializeSeed, Deserialize, Deserializer, Serialize};
 
-use crate::{player::Player, ActionEvent};
+use crate::{chunk::{ComputeTask, LoadChunk, SaveChunk}, player::Player, ActionEvent, ClickTileEvent};
 
-const TILES_PER_CHUNK: u32 = 4;
-const TILE_LENGTH: f32 = 32.0;
+pub const TILES_PER_CHUNK: u32 = 8;
+pub const TILE_LENGTH: f32 = 32.0;
 
-const MAP_SIZE: TilemapSize = TilemapSize {
+pub const MAP_SIZE: TilemapSize = TilemapSize {
     x: TILES_PER_CHUNK,
     y: TILES_PER_CHUNK,
 };
-const TILE_SIZE: TilemapTileSize = TilemapTileSize {
+pub const TILE_SIZE: TilemapTileSize = TilemapTileSize {
     x: TILE_LENGTH,
     y: TILE_LENGTH,
 };
-const GRID_SIZE: TilemapGridSize = TilemapGridSize {
+pub const GRID_SIZE: TilemapGridSize = TilemapGridSize {
     x: TILE_LENGTH,
     y: TILE_LENGTH,
 };
@@ -37,37 +42,24 @@ const GRID_SIZE: TilemapGridSize = TilemapGridSize {
 struct ViewDistance(f32);
 impl Default for ViewDistance {
     fn default() -> Self {
-        Self(10.0)
+        Self(20.0)
     }
 }
 
-fn spawn_chunk_stub(commands: &mut Commands, chunk_index: IVec2, glob: &mut GlobalEntropy<WyRand>) {
+fn spawn_chunk_stub(commands: &mut Commands, chunk_index: IVec2) {
+
     let tilemap_entity = commands.spawn_empty().id();
     let mut tile_storage = TileStorage::empty(MAP_SIZE);
     commands
         .entity(tilemap_entity)
-        .insert((Replicated, Chunk { chunk_index }, Name::new("Chunk")))
+        .insert((Replicated, Chunk { chunk_index }))
         .with_children(|parent| {
             for x in 0..MAP_SIZE.x {
                 for y in 0..MAP_SIZE.y {
                     let tile_pos = TilePos { x, y };
                     let ground = Ground::Grass;
                     let tile_entity = parent
-                        .spawn((
-                            TileBundle {
-                                position: tile_pos,
-                                tilemap_id: TilemapId(tilemap_entity),
-                                ..Default::default()
-                            },
-                            Replicated,
-                            ground,
-                            Name::new("Tile"),
-                            ParentSync::default(),
-                            glob.fork_rng(),
-                            On::<Pointer<Click>>::target_commands_mut(|_click, target_commands| {
-                                dbg!("Clicked me!");
-                            }),
-                        ))
+                        .spawn((tile_pos, Replicated, ground, ParentSync::default()))
                         .id();
                     tile_storage.set(&tile_pos, tile_entity);
                 }
@@ -79,9 +71,9 @@ fn spawn_chunk_stub(commands: &mut Commands, chunk_index: IVec2, glob: &mut Glob
 fn manage_loaded_chunks(
     mut commands: Commands,
     chunk_query: Query<(Entity, &Chunk)>,
+    loading_tasks_query: Query<(&ComputeTask)>,
     player_query: Query<&Transform, With<Player>>,
     view_distance: Res<ViewDistance>,
-    mut glob: ResMut<GlobalEntropy<WyRand>>,
 ) {
     let mut allowed_chunk_indices = Vec::new();
     for player_transform in player_query.iter() {
@@ -93,6 +85,8 @@ fn manage_loaded_chunks(
     }
     for (entity, chunk) in chunk_query.iter() {
         if !allowed_chunk_indices.contains(&chunk.chunk_index) {
+            commands.trigger(SaveChunk {index: chunk.chunk_index});
+
             commands.entity(entity).despawn_recursive();
         } else {
             let pos = allowed_chunk_indices
@@ -102,8 +96,19 @@ fn manage_loaded_chunks(
             allowed_chunk_indices.swap_remove(pos);
         }
     }
+    for loading_task in loading_tasks_query.iter() {
+        let Some(pos) = allowed_chunk_indices
+                .iter()
+                .position(|x| *x == loading_task.0) else {continue;};
+        allowed_chunk_indices.swap_remove(pos);
+    }
     for chunk_to_spawn in allowed_chunk_indices {
-        spawn_chunk_stub(&mut commands, chunk_to_spawn, &mut glob);
+        if Path::new(&format!("world/{}_{}.ron", chunk_to_spawn.x, chunk_to_spawn.y)).exists() {
+            commands.trigger(LoadChunk {index: chunk_to_spawn});
+        } else {
+            spawn_chunk_stub(&mut commands, chunk_to_spawn);
+        }
+        
     }
 }
 
@@ -134,49 +139,43 @@ fn update_ground_texture(
 
 fn init_chunk(
     mut commands: Commands,
-    query: Query<(Entity, &Chunk), Without<TilemapGridSize>>,
+    chunks_q: Query<(Entity, &Chunk, &Children), Without<TilemapGridSize>>,
     asset_server: Res<AssetServer>,
+    mut glob: ResMut<GlobalEntropy<WyRand>>,
 ) {
     let texture_handle: Handle<Image> = asset_server.load("TX Tileset Grass.png");
     let map_type = TilemapType::default();
-    for (entity, chunk) in query.iter() {
-        commands.entity(entity).insert(RenderTilemapBundle {
-            grid_size: GRID_SIZE,
-            map_type,
-            size: MAP_SIZE,
-            texture: TilemapTexture::Single(texture_handle.clone()),
-            transform: Transform::from_translation(
-                chunk.get_world_coords().extend(0.0)
-                    + Vec3::new(TILE_LENGTH, TILE_LENGTH, 0.0) * 0.5,
-            ),
-            tile_size: TILE_SIZE,
+    for (entity, chunk, children) in chunks_q.iter() {
+        commands.entity(entity).insert((
+            Name::new("Chunk"),
+            RenderTilemapBundle {
+                grid_size: GRID_SIZE,
+                map_type,
+                size: MAP_SIZE,
+                texture: TilemapTexture::Single(texture_handle.clone()),
+                transform: Transform::from_translation(
+                    chunk.get_world_coords().extend(0.0)
+                        + Vec3::new(TILE_LENGTH, TILE_LENGTH, 0.0) * 0.5,
+                ),
+                tile_size: TILE_SIZE,
 
-            ..Default::default()
-        },
-    );
+                ..Default::default()
+            },
+        ));
+
+        for child in children {
+            commands.entity(*child).insert((
+                Name::new("Tile"),
+                TileTextureIndex::default(),
+                TilemapId(entity),
+                TileVisible::default(),
+                TileFlip::default(),
+                TileColor::default(),
+                TilePosOld::default(),
+                glob.fork_rng(),
+            ));
+        }
     }
-}
-
-#[derive(Bundle, Debug, Default, Clone)]
-pub struct RenderTilemapBundle {
-    pub grid_size: TilemapGridSize,
-    pub map_type: TilemapType,
-    pub size: TilemapSize,
-    pub spacing: TilemapSpacing,
-    pub texture: TilemapTexture,
-    pub tile_size: TilemapTileSize,
-    pub transform: Transform,
-    pub global_transform: GlobalTransform,
-    pub render_settings: TilemapRenderSettings,
-    /// User indication of whether an entity is visible
-    pub visibility: Visibility,
-    /// Algorithmically-computed indication of whether an entity is visible and should be extracted
-    /// for rendering
-    pub inherited_visibility: InheritedVisibility,
-    pub view_visibility: ViewVisibility,
-    /// User indication of whether tilemap should be frustum culled.
-    pub frustum_culling: FrustumCulling,
-    pub material: Handle<StandardTilemapMaterial>,
 }
 
 fn apply_action(
@@ -202,9 +201,33 @@ fn apply_action(
     Some(())
 }
 
-fn detect_tile_click(mut click_events: EventReader<Pointer<Click>>) {
+fn detect_tile_click(
+    mut click_events: EventReader<Pointer<Click>>,
+    tiles: Query<&TilePos>,
+    mut writer: EventWriter<ClickTileEvent>,
+) {
     for click in click_events.read() {
-        dbg!("Click!");
+        let Some(tile_pos) = tiles.get(click.target).ok() else {
+            continue;
+        };
+        dbg!(tile_pos);
+        writer.send(ClickTileEvent { tile: click.target });
+    }
+}
+
+fn handle_tile_click(
+    mut reader: EventReader<FromClient<ClickTileEvent>>,
+    mut tiles: Query<(&mut Ground), With<TilePos>>,
+) {
+    for FromClient {
+        client_id,
+        event: ClickTileEvent { tile },
+    } in reader.read()
+    {
+        match tiles.get_mut(*tile) {
+            Ok(mut ground) => *ground = Ground::Dirt,
+            Err(_) => {}
+        }
     }
 }
 
@@ -235,9 +258,10 @@ fn debug_draw_tile_borders(
     }
 }
 
-#[derive(Component, Serialize, Deserialize)]
+#[derive(Component, Reflect, Serialize, Deserialize)]
+#[reflect(Component)]
 pub struct Chunk {
-    chunk_index: IVec2,
+    pub chunk_index: IVec2,
 }
 
 impl Chunk {
@@ -263,7 +287,8 @@ pub fn chunk_indices_inside(rect: Rect) -> Vec<IVec2> {
     return indices;
 }
 
-#[derive(Component, Serialize, Deserialize)]
+#[derive(Component, Debug, Reflect, Serialize, Deserialize, Clone)]
+#[reflect(Component)]
 pub enum Ground {
     Dirt,
     Grass,
@@ -278,6 +303,7 @@ impl Plugin for WorldPlugin {
         app.add_plugins(TilemapPlugin)
             .insert_resource(ViewDistance::default())
             .replicate_mapped::<TilemapId>()
+            .replicate_mapped::<TileStorage>()
             .replicate::<TilePos>()
             .replicate::<Ground>()
             .replicate::<Chunk>()
@@ -286,6 +312,8 @@ impl Plugin for WorldPlugin {
             .replicate::<TileTextureIndex>()
             .replicate::<TileColor>()
             .replicate::<TilePosOld>()
+            .register_type::<Chunk>()
+            .register_type::<Ground>()
             .add_systems(
                 PreUpdate,
                 manage_loaded_chunks
@@ -303,7 +331,8 @@ impl Plugin for WorldPlugin {
                 (
                     debug_draw_chunk_borders,
                     debug_draw_tile_borders,
-                    detect_tile_click,
+                    detect_tile_click.run_if(client_connected),
+                    handle_tile_click.run_if(has_authority),
                 ),
             )
             .add_systems(
