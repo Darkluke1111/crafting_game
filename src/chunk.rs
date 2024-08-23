@@ -1,5 +1,5 @@
 use std::{
-    fs::{create_dir, File},
+    fs::{create_dir_all, File},
     io::{Read, Write},
     path::Path,
 };
@@ -10,8 +10,7 @@ use bevy::{
     prelude::*,
     tasks::{
         block_on,
-        futures_lite::{future, FutureExt},
-        ComputeTaskPool, IoTaskPool, Task,
+        futures_lite::future, IoTaskPool, Task,
     },
 };
 use bevy_ecs_tilemap::{
@@ -100,7 +99,7 @@ impl Default for ViewDistance {
 }
 
 fn init_save_folder() {
-    create_dir("world");
+    create_dir_all("world").expect("Unable to create save folder");
 }
 
 fn load_chunk_observer(trigger: Trigger<LoadChunk>, mut commands: Commands) {
@@ -234,7 +233,7 @@ fn spawn_chunk_stub(commands: &mut Commands, chunk_data: ChunkData) {
 fn load_deload_chunks(
     mut commands: Commands,
     chunk_query: Query<(Entity, &Chunk)>,
-    loading_tasks_query: Query<(&ComputeTask)>,
+    loading_tasks_query: Query<&ComputeTask>,
     player_query: Query<&Transform, With<Player>>,
     view_distance: Res<ViewDistance>,
 ) {
@@ -255,7 +254,7 @@ fn load_deload_chunks(
             .position(|&x| x == chunk.chunk_index);
         match pos {
             Some(pos) => {
-                // remove visible chunks that are already spawned from the list
+                // remove visible chunks that are already spawned form the list
                 visible_chunk_indices.swap_remove(pos);
             }
             None => {
@@ -266,6 +265,13 @@ fn load_deload_chunks(
                 commands.entity(entity).despawn_recursive();
             }
         }
+    }
+
+    // remove visible chunks that are already loading form the list
+    for loading_task in loading_tasks_query.iter() {
+        visible_chunk_indices.swap_remove(visible_chunk_indices
+            .iter()
+            .position(|&x| x == loading_task.0).unwrap());
     }
 
     //spawning chunks that are visible but not yet spawned

@@ -1,26 +1,20 @@
-use std::{fs::File, io::{Read, Write}, path::Path};
 
 use bevy::{
-    asset::AssetPath, color::palettes::css::{RED, YELLOW}, ecs::{reflect, world::CommandQueue}, prelude::*, scene::{ron, serde::SceneDeserializer}, tasks::{block_on, futures_lite::future, IoTaskPool, Task}, utils::dbg
+    color::palettes::css::{RED, YELLOW}, prelude::*
 };
 use bevy_ecs_tilemap::{
-    map::{TilemapId, TilemapSize, TilemapTexture, TilemapTileSize, TilemapType},
+    map::{TilemapId, TilemapType},
     prelude::*,
-    tiles::{TileBundle, TilePos, TileStorage},
-    FrustumCulling,
+    tiles::{TilePos, TileStorage},
 };
-use bevy_inspector_egui::egui::load;
-use bevy_mod_picking::{
-    events::{Click, Pointer},
-    prelude::On,
-};
+use bevy_mod_picking::events::{Click, Pointer};
 use bevy_rand::prelude::*;
 use bevy_replicon::prelude::*;
 use bevy_replicon_snap::NetworkOwner;
 use rand_core::RngCore;
-use serde::{de::DeserializeSeed, Deserialize, Deserializer, Serialize};
+use serde::{Deserialize, Serialize};
 
-use crate::{chunk::{Chunk, ComputeTask, LoadChunk, SaveChunk, GRID_SIZE, MAP_SIZE, TILE_LENGTH, TILE_SIZE}, player::Player, ActionEvent, ClickTileEvent};
+use crate::{chunk::{Chunk, GRID_SIZE, MAP_SIZE, TILE_LENGTH}, ActionEvent, ClickTileEvent};
 
 
 
@@ -84,7 +78,7 @@ fn detect_tile_click(
     mut writer: EventWriter<ClickTileEvent>,
 ) {
     for click in click_events.read() {
-        let Some(tile_pos) = tiles.get(click.target).ok() else {
+        let Some(_tile_pos) = tiles.get(click.target).ok() else {
             continue;
         };
         writer.send(ClickTileEvent { tile: click.target });
@@ -93,10 +87,10 @@ fn detect_tile_click(
 
 fn handle_tile_click(
     mut reader: EventReader<FromClient<ClickTileEvent>>,
-    mut tiles: Query<(&mut Ground), With<TilePos>>,
+    mut tiles: Query<&mut Ground, With<TilePos>>,
 ) {
     for FromClient {
-        client_id,
+        client_id: _,
         event: ClickTileEvent { tile },
     } in reader.read()
     {
@@ -187,7 +181,7 @@ pub trait ChunkPosExt {
     fn from_in_chunk_pos(pos: Vec2) -> Option<Self>
     where
         Self: Sized;
-    fn get_in_chunk_pos(&self) -> Vec2;
+
 }
 
 impl ChunkPosExt for TilePos {
@@ -196,9 +190,5 @@ impl ChunkPosExt for TilePos {
         let tile_pos = TilePos::from_i32_pair(tile_pos.x as i32, tile_pos.y as i32, &MAP_SIZE);
         //dbg!(tile_pos);
         return tile_pos;
-    }
-
-    fn get_in_chunk_pos(&self) -> Vec2 {
-        todo!()
     }
 }

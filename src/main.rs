@@ -34,7 +34,6 @@ use inventory_ui::InventoryUIPlugin;
 use item::ItemPlugin;
 use item_container::ItemContainerPlugin;
 use player::{PlayerBundle, PlayerPlugin};
-use serde::{Deserialize, Serialize};
 use tile_picker_backend::TilemapBackend;
 use world::WorldPlugin;
 use world_object::WorldObjectPlugin;
@@ -97,9 +96,7 @@ fn main() {
             WorldObjectPlugin,
             CameraPlugin,
         ))
-        .add_plugins((
-            ChunkPlugin
-        ))
+        .add_plugins(ChunkPlugin)
         .add_plugins(RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(100.0))
         .add_plugins(RapierDebugRenderPlugin::default())
         .add_client_event::<MoveEvent>(ChannelKind::Ordered)
