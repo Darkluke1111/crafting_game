@@ -56,6 +56,7 @@ struct WalkAnimation {
 
 #[derive(Debug)]
 enum PlayerAnimationState {
+    StandStill(usize),
     WalkRight(usize),
     WalkLeft(usize),
 }
@@ -106,19 +107,30 @@ fn animate_player(
     >,
     time: Res<Time>,
 ) {
+    const ANIMATION_RIGHT_INDEX : usize = 4;
+    const ANIMATION_LEFT_INDEX : usize = 8;
     for (mut atlas, transform, mut animation, mut timer) in query.iter_mut() {
         timer.tick(time.delta());
         if timer.just_finished() {
             let diff = transform.translation.x - animation.old_pos.x;
             let new_state = match animation.current_state {
-                PlayerAnimationState::WalkLeft(_) if (diff >= 0.0) => {
+                PlayerAnimationState::StandStill(_) if (diff < 0.0) => {
                     PlayerAnimationState::WalkLeft(0)
+                }
+                PlayerAnimationState::StandStill(_) if (diff > 0.0) => {
+                    PlayerAnimationState::WalkRight(0)
+                }
+                PlayerAnimationState::StandStill(old) => {
+                    PlayerAnimationState::StandStill(old)
+                }
+                PlayerAnimationState::WalkLeft(_) if (diff >= 0.0) => {
+                    PlayerAnimationState::StandStill(ANIMATION_LEFT_INDEX)
                 }
                 PlayerAnimationState::WalkLeft(old) => {
                     PlayerAnimationState::WalkLeft((old + 1) % 4)
                 }
                 PlayerAnimationState::WalkRight(_) if (diff <= 0.0) => {
-                    PlayerAnimationState::WalkRight(0)
+                    PlayerAnimationState::StandStill(ANIMATION_RIGHT_INDEX)
                 }
                 PlayerAnimationState::WalkRight(old) => {
                     PlayerAnimationState::WalkRight((old + 1) % 4)
@@ -129,8 +141,9 @@ fn animate_player(
                 current_state: new_state,
             };
             atlas.index = match animation.current_state {
-                PlayerAnimationState::WalkLeft(x) => x,
-                PlayerAnimationState::WalkRight(x) => x + 4,
+                PlayerAnimationState::StandStill(x) => x,
+                PlayerAnimationState::WalkLeft(x) => x + ANIMATION_LEFT_INDEX,
+                PlayerAnimationState::WalkRight(x) => x + ANIMATION_RIGHT_INDEX,
             }
         }
     }
